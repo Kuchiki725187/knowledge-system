@@ -4,6 +4,9 @@ target/
 src/main/resources/application-secret.yml
 src/main/resources/application-secret.example.yml
 
+# 附件上传目录(用户文件不入库)
+uploads/
+
 .idea/
 *.iml
 .vscode/

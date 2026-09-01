@@ -128,6 +128,23 @@ CREATE TABLE IF NOT EXISTS t_favorite (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='收藏表';
 
 -- ------------------------------------------------------------
+-- 附件表(文件存本地磁盘,表里只存元数据与相对路径)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS t_attachment (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    user_id      BIGINT        NOT NULL COMMENT '所属用户',
+    knowledge_id BIGINT        NOT NULL COMMENT '所属知识',
+    file_name    VARCHAR(255)  NOT NULL COMMENT '原始文件名',
+    file_path    VARCHAR(512)  NOT NULL COMMENT '存储相对路径(基于上传根目录)',
+    file_size    BIGINT        NOT NULL DEFAULT 0 COMMENT '文件大小(字节)',
+    file_type    VARCHAR(50)   DEFAULT NULL COMMENT 'MIME类型',
+    create_time  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+    deleted      TINYINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    KEY idx_knowledge (knowledge_id),
+    KEY idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='附件表';
+
+-- ------------------------------------------------------------
 -- 知识关联表(单向存储,双向查询;relation_type=1 手动相关)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS t_knowledge_relation (
