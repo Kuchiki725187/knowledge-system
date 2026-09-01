@@ -1,0 +1,66 @@
+# 个人知识管理系统 · 一键部署
+# 用法: cp .env.example .env 并填写密码 → docker compose up -d --build
+# 敏感值全部走 .env 注入,不入代码仓库
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: knowledge-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: knowledge_db
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # MySQL 官方镜像首次启动自动执行该目录下所有 .sql(自动建库建表)
+      - ./docs/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: knowledge-redis
+    restart: always
+    volumes:
+      - redis-data:/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: knowledge-backend
+    restart: always
+    environment:
+      # Spring Boot 标准环境变量(优先级高于 application.yml),敏感值从 .env 注入
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/knowledge_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET}
+      TZ: Asia/Shanghai
+    volumes:
+      - upload-data:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: knowledge-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  mysql-data:
+  redis-data:
+  upload-data:

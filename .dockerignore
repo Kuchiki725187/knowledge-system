@@ -1,0 +1,10 @@
+# 构建上下文排除项:减少传输体积 + 防止敏感/冗余文件进镜像
+target/
+.idea/
+.git/
+uploads/
+frontend/node_modules/
+frontend/dist/
+src/main/resources/application-secret.yml
+.env
+*.log
