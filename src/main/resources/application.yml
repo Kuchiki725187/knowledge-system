@@ -1,0 +1,30 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  config:
+    import: application-secret.yml
+  application:
+    name: knowledge-backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/knowledge_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${secret.db.username}
+    password: ${secret.db.password}
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+jwt:
+  secret: ${secret.jwt.secret}
+  access-ttl-hours: 2
+  refresh-ttl-days: 7
