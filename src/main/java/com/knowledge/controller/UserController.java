@@ -1,6 +1,7 @@
 package com.knowledge.controller;
 
 import com.knowledge.common.result.Result;
+import com.knowledge.dto.RefreshTokenDTO;
 import com.knowledge.dto.UserLoginDTO;
 import com.knowledge.dto.UserRegisterDTO;
 import com.knowledge.dto.UserUpdateDTO;
@@ -31,6 +32,11 @@ public class UserController {
     @PostMapping("/login")
     public Result<LoginVO> login(@RequestBody @Valid UserLoginDTO dto) {
         return Result.ok(userService.login(dto));
+    }
+
+    @PostMapping("/refresh")
+    public Result<LoginVO> refresh(@RequestBody @Valid RefreshTokenDTO dto) {
+        return Result.ok(userService.refresh(dto));
     }
 
     @GetMapping("/me")

@@ -1,6 +1,7 @@
 package com.knowledge.task;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.knowledge.common.util.SimpleRedisLock;
 import com.knowledge.entity.Knowledge;
 import com.knowledge.mapper.KnowledgeMapper;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,15 @@ import java.util.Set;
 public class ViewCountSyncTask {
 
     private static final String VIEW_COUNT_KEY_PREFIX = "knowledge:view:";
+    /**
+     * 分布式锁:多实例部署时保证同一时刻只有一个实例执行同步,
+     * 避免每个实例都落库一遍造成重复累加
+     */
+    private static final String SYNC_LOCK_KEY = "lock:view-count-sync";
+    /**
+     * 锁过期时间:任务 60s 一次,给 120s 余量,防持锁实例崩溃后死锁
+     */
+    private static final long SYNC_LOCK_EXPIRE_SECONDS = 120;
 
     /**
      * Lua 脚本实现"取走+删除"
@@ -35,6 +45,7 @@ public class ViewCountSyncTask {
 
     private final StringRedisTemplate stringRedisTemplate;
     private final KnowledgeMapper knowledgeMapper;
+    private final SimpleRedisLock redisLock;
 
     /**
      * 每 60 秒把 Redis 里的浏览增量批量落库
@@ -42,6 +53,21 @@ public class ViewCountSyncTask {
      */
     @Scheduled(fixedDelay = 60000)
     public void syncViewCount() {
+        // 尝试获取分布式锁;拿不到说明已有实例在同步,本实例直接跳过
+        String lockValue = redisLock.tryLock(SYNC_LOCK_KEY, SYNC_LOCK_EXPIRE_SECONDS);
+        if (lockValue == null) {
+            log.info("其他实例正在同步浏览计数,本次跳过");
+            return;
+        }
+        try {
+            doSync();
+        } finally {
+            // 释放锁(原子校验持有者,防止误删他人锁)
+            redisLock.unlock(SYNC_LOCK_KEY, lockValue);
+        }
+    }
+
+    private void doSync() {
         // 1.扫描所有浏览计数 key(用 SCAN 而非 KEYS,避免阻塞 Redis 主线程)
         Set<String> keys = new HashSet<>();
         try (Cursor<String> cursor = stringRedisTemplate.scan(

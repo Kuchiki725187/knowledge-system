@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.knowledge.common.context.BaseContext;
 import com.knowledge.common.exception.BusinessException;
 import com.knowledge.common.util.JwtUtil;
+import com.knowledge.common.util.JwtUtil;
+import com.knowledge.dto.RefreshTokenDTO;
 import com.knowledge.dto.UserLoginDTO;
 import com.knowledge.dto.UserRegisterDTO;
 import com.knowledge.dto.UserUpdateDTO;
@@ -12,6 +14,8 @@ import com.knowledge.mapper.UserMapper;
 import com.knowledge.service.UserService;
 import com.knowledge.vo.LoginVO;
 import com.knowledge.vo.UserVO;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -56,6 +60,42 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(1003, "账号已禁用");
         }
 
+        return buildLoginVO(user);
+    }
+
+    /**
+     * 刷新 token:校验 refreshToken -> 重新签发新一轮双 token(轮换机制,旧 refreshToken 作废)
+     */
+    @Override
+    public LoginVO refresh(RefreshTokenDTO dto) {
+        // 1.解析 refreshToken;过期/被篡改统一按"登录已过期"处理(不给攻击者区分线索)
+        Claims claims;
+        try {
+            claims = jwtUtil.parse(dto.getRefreshToken());
+        } catch (JwtException e) {
+            // JwtException 是所有解析失败的基类(含过期),统一按登录过期处理
+            throw new BusinessException(401, "登录已过期，请重新登录");
+        }
+
+        // 2.校验 token 类型必须是 refresh,防止拿 access token 冒充
+        if (!"refresh".equals(claims.get("type"))) {
+            throw new BusinessException(401, "登录已过期，请重新登录");
+        }
+
+        // 3.查用户并校验状态(账号被禁用后,refresh 也不放行)
+        User user = userMapper.selectById(Long.parseLong(claims.getSubject()));
+        if (user == null || (user.getStatus() != null && user.getStatus() == 0)) {
+            throw new BusinessException(401, "登录已过期，请重新登录");
+        }
+
+        // 4.签发新双 token
+        return buildLoginVO(user);
+    }
+
+    /**
+     * 组装登录/刷新响应:双 token + 用户信息(两处共用,避免重复)
+     */
+    private LoginVO buildLoginVO(User user) {
         LoginVO vo = new LoginVO();
         vo.setAccessToken(jwtUtil.createAccessToken(user.getId()));
         vo.setRefreshToken(jwtUtil.createRefreshToken(user.getId()));
