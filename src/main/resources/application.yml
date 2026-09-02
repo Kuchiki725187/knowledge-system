@@ -5,7 +5,8 @@ server:
 
 spring:
   config:
-    import: application-secret.yml
+    # 本地开发有 secret 文件就加载;容器部署没有此文件(靠 SPRING_* 环境变量注入)也能启动
+    import: optional:application-secret.yml
   application:
     name: knowledge-backend
   datasource:
