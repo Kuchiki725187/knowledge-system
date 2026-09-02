@@ -8,6 +8,7 @@ import { getKnowledge, deleteKnowledge } from '../api/knowledge'
 import { addFavorite, removeFavorite, pageFavorite } from '../api/favorite'
 import { addLike, removeLike } from '../api/like'
 import { addComment, pageComment, deleteComment } from '../api/comment'
+import { uploadAttachment, listAttachments, deleteAttachment, downloadAttachmentFile } from '../api/attachment'
 import { useUserStore } from '../stores/user'
 
 const route = useRoute()
@@ -116,10 +117,65 @@ async function handleDeleteComment(id) {
   ElMessage.success('已删除')
 }
 
+// ---- 附件区 ----
+const attachments = ref([])
+const uploading = ref(false)
+
+async function loadAttachments() {
+  try {
+    attachments.value = await listAttachments(route.params.id)
+  } catch (e) { /* 静默 */ }
+}
+
+// el-upload 自定义上传:走 axios(自动带 token),成功后再刷新列表
+async function doUpload(options) {
+  uploading.value = true
+  try {
+    await uploadAttachment(route.params.id, options.file)
+    ElMessage.success('上传成功')
+    options.onSuccess()
+    await loadAttachments()
+  } catch (e) {
+    options.onError(e)
+  } finally {
+    uploading.value = false
+  }
+}
+
+// 下载:blob 从后端拉回来,用 a 标签触发浏览器保存
+async function downloadAttachment(a) {
+  try {
+    const res = await downloadAttachmentFile(a.id)
+    const url = URL.createObjectURL(res.data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = a.fileName
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    ElMessage.error('下载失败')
+  }
+}
+
+async function handleDeleteAttachment(id) {
+  await ElMessageBox.confirm('确定删除该附件？', '提示', { type: 'warning' })
+  await deleteAttachment(id)
+  ElMessage.success('已删除')
+  await loadAttachments()
+}
+
+function formatSize(size) {
+  if (!size) return '0 B'
+  if (size < 1024) return size + ' B'
+  if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KB'
+  return (size / 1024 / 1024).toFixed(1) + ' MB'
+}
+
 onMounted(async () => {
   await load()
   loadFavorited()
   loadComments()
+  loadAttachments()
 })
 </script>
 
@@ -154,6 +210,31 @@ onMounted(async () => {
         {{ detail.isLiked ? '已赞' : '点赞' }} {{ detail.likeCount }}
       </el-button>
       <el-button round disabled>评论 {{ detail.commentCount }}</el-button>
+    </div>
+
+    <!-- 附件区 -->
+    <div class="attachments">
+      <div class="attachments-head">
+        <h3>附件 ({{ attachments.length }})</h3>
+        <el-upload
+          v-if="isOwner"
+          :show-file-list="false"
+          :http-request="doUpload"
+          accept=".md,.txt,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.zip,.rar,.7z,.csv,.json,.sql"
+        >
+          <el-button size="small" type="primary" :loading="uploading">上传附件</el-button>
+        </el-upload>
+      </div>
+      <div v-if="attachments.length" class="attachment-list">
+        <div v-for="a in attachments" :key="a.id" class="attachment-item">
+          <span class="attachment-name" @click="downloadAttachment(a)">{{ a.fileName }}</span>
+          <span class="attachment-meta">{{ formatSize(a.fileSize) }} · {{ a.createTime }}</span>
+          <el-button v-if="isOwner" link type="danger" size="small" @click="handleDeleteAttachment(a.id)">
+            删除
+          </el-button>
+        </div>
+      </div>
+      <el-empty v-else description="暂无附件" :image-size="50" />
     </div>
 
     <!-- 评论区 -->
@@ -233,6 +314,36 @@ onMounted(async () => {
   padding: 20px 0;
   margin-top: 16px;
   border-top: 1px solid #f0f0f0;
+}
+.attachments {
+  margin-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 16px;
+}
+.attachments-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #eee;
+}
+.attachment-name {
+  color: #409eff;
+  cursor: pointer;
+  font-size: 14px;
+}
+.attachment-name:hover {
+  text-decoration: underline;
+}
+.attachment-meta {
+  font-size: 12px;
+  color: #c0c4cc;
 }
 .comments {
   margin-top: 12px;
