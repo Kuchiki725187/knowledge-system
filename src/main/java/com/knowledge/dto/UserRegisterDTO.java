@@ -21,4 +21,11 @@ public class UserRegisterDTO {
     @Size(max = 32,
             message = "昵称长度不能超过32位")
     private String nickname;
+
+    /**
+     * 用户名里的空格视为不存在
+     */
+    public void setUsername(String username) {
+        this.username = username == null ? null : username.replaceAll("\\s", "");
+    }
 }
