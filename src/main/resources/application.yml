@@ -2,6 +2,10 @@ server:
   port: 8080
   servlet:
     context-path: /api
+  tomcat:
+    # 线程上限减少，优化内存使用
+    threads:
+      max: 50
 
 spring:
   config:
@@ -32,6 +36,15 @@ spring:
 app:
   upload:
     dir: uploads
+
+# 阿里云 OSS
+oss:
+  endpoint: ${OSS_ENDPOINT:${secret.oss.endpoint:}}
+  access-key-id: ${OSS_ACCESS_KEY_ID:${secret.oss.access-key-id:}}
+  access-key-secret: ${OSS_ACCESS_KEY_SECRET:${secret.oss.access-key-secret:}}
+  bucket-name: ${OSS_BUCKET_NAME:${secret.oss.bucket-name:}}
+
+  url-prefix: ${OSS_URL_PREFIX:${secret.oss.url-prefix:}}
 
 mybatis-plus:
   configuration:

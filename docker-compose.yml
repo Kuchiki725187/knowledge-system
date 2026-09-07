@@ -6,6 +6,14 @@ services:
     image: mysql:8.0
     container_name: knowledge-mysql
     restart: always
+    command:
+      # 内存优化:
+      # performance_schema 默认开启占 100~200MB,关了
+      # buffer pool 从默认 128M 压到 64M
+      - --performance_schema=OFF
+      - --innodb_buffer_pool_size=64M
+      - --innodb_log_buffer_size=8M
+    mem_limit: 512m
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: knowledge_db
@@ -24,6 +32,14 @@ services:
     image: redis:7-alpine
     container_name: knowledge-redis
     restart: always
+    command:
+      # 缓存数据量小,封顶 64MB 防无限增长
+      - redis-server
+      - --maxmemory
+      - 64mb
+      - --maxmemory-policy
+      - noeviction
+    mem_limit: 128m
     volumes:
       - redis-data:/data
 
@@ -33,6 +49,8 @@ services:
       dockerfile: docker/backend.Dockerfile
     container_name: knowledge-backend
     restart: always
+    # JVM 已限 -Xmx256m,容器上限 512m 兜底(含 metaspace/线程栈/直接内存)
+    mem_limit: 512m
     environment:
       # Spring Boot 标准环境变量(优先级高于 application.yml),敏感值从 .env 注入
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/knowledge_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
@@ -55,6 +73,7 @@ services:
       dockerfile: docker/frontend.Dockerfile
     container_name: knowledge-frontend
     restart: always
+    mem_limit: 128m
     depends_on:
       - backend
     ports:

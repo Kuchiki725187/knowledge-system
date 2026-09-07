@@ -3,7 +3,7 @@ package com.knowledge.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.knowledge.common.context.BaseContext;
 import com.knowledge.common.exception.BusinessException;
-import com.knowledge.common.util.JwtUtil;
+import com.knowledge.common.oss.OssStorageService;
 import com.knowledge.common.util.JwtUtil;
 import com.knowledge.dto.RefreshTokenDTO;
 import com.knowledge.dto.UserLoginDTO;
@@ -20,6 +20,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +31,7 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final OssStorageService ossStorageService;
 
     @Override
     public UserVO register(UserRegisterDTO dto) {
@@ -112,14 +116,58 @@ public class UserServiceImpl implements UserService {
         return toUserVO(user);
     }
 
+    /**
+     * 修改个人资料:用户名/密码/昵称/头像,传了才改(全部可空)
+     * 改密码必须校验旧密码,防止 token 窃取者直接改密劫持账号
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public UserVO updateMe(UserUpdateDTO dto) {
-        User user = new User();
-        user.setId(BaseContext.getUserId());
-        user.setNickname(dto.getNickname());
-        user.setAvatar(dto.getAvatar());
+        Long userId = BaseContext.getUserId();
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(1004, "用户不存在");
+        }
+
+        // 1.改用户名:查重需排除自己;数据库唯一索引兜底并发冲突
+        if (StringUtils.hasText(dto.getUsername()) && !dto.getUsername().equals(user.getUsername())) {
+            Long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                    .eq(User::getUsername, dto.getUsername())
+                    .ne(User::getId, userId));
+            if (count > 0) {
+                throw new BusinessException(1001, "用户名已存在");
+            }
+            user.setUsername(dto.getUsername());
+        }
+
+        // 2.改密码:新密码传了才走这里,且必须校验旧密码
+        if (StringUtils.hasText(dto.getPassword())) {
+            if (!StringUtils.hasText(dto.getOldPassword())
+                    || !passwordEncoder.matches(dto.getOldPassword(), user.getPassword())) {
+                throw new BusinessException(1005, "原密码错误");
+            }
+            user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        }
+
+        // 3.昵称/头像:传了才更新(空串传过来也视为用户主动清空昵称/头像)
+        if (dto.getNickname() != null) {
+            user.setNickname(dto.getNickname());
+        }
+        if (dto.getAvatar() != null) {
+            user.setAvatar(dto.getAvatar());
+        }
+
         userMapper.updateById(user);
         return getMe();
+    }
+
+    /**
+     * 上传头像到 OSS,返回可访问 URL(落库由 updateMe 的 avatar 字段完成,职责解耦)
+     */
+    @Override
+    public String uploadAvatar(MultipartFile file) {
+        Long userId = BaseContext.getUserId();
+        return ossStorageService.uploadImage(file, "avatar", userId);
     }
 
     private UserVO toUserVO(User user) {

@@ -15,4 +15,5 @@ WORKDIR /app
 # 只拷贝构建产物 jar
 COPY --from=build /build/target/*.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# JVM 参数调整，优化内存使用
+ENTRYPOINT ["java", "-Xmx256m", "-Xms128m", "-XX:MaxMetaspaceSize=128m", "-XX:+UseSerialGC", "-Xss512k", "-jar", "app.jar"]

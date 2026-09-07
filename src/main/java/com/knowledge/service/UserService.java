@@ -6,6 +6,7 @@ import com.knowledge.dto.UserRegisterDTO;
 import com.knowledge.dto.UserUpdateDTO;
 import com.knowledge.vo.LoginVO;
 import com.knowledge.vo.UserVO;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface UserService {
 
@@ -18,4 +19,6 @@ public interface UserService {
     UserVO getMe();
 
     UserVO updateMe(UserUpdateDTO dto);
+
+    String uploadAvatar(MultipartFile file);
 }
