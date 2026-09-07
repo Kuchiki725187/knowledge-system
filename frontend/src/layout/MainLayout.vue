@@ -6,9 +6,22 @@ const router = useRouter()
 const route = useRoute()
 const store = useUserStore()
 
+// avatar 为空时用图标头像作为默认头像
+function avatarUrl() {
+  return store.userInfo?.avatar || ''
+}
+
 function handleLogout() {
   store.logout()
   router.push('/login')
+}
+
+function handleCommand(command) {
+  if (command === 'profile') {
+    router.push('/profile')
+  } else if (command === 'logout') {
+    handleLogout()
+  }
 }
 </script>
 
@@ -32,7 +45,18 @@ function handleLogout() {
         <div></div>
         <div class="right">
           <span class="nickname">{{ store.userInfo?.nickname || store.userInfo?.username }}</span>
-          <el-button size="small" @click="handleLogout">退出登录</el-button>
+          <!-- 点击头像进入个人资料页 -->
+          <el-dropdown trigger="click" @command="handleCommand">
+            <el-avatar :size="36" :src="avatarUrl()" class="avatar">
+              <el-icon><UserFilled /></el-icon>
+            </el-avatar>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="profile">个人资料</el-dropdown-item>
+                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
       <el-main class="main">
@@ -73,6 +97,11 @@ function handleLogout() {
 .nickname {
   font-size: 14px;
   color: #606266;
+}
+.avatar {
+  cursor: pointer;
+  background: #409eff;
+  flex-shrink: 0;
 }
 .main {
   background: #f5f7fa;

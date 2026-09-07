@@ -20,6 +20,7 @@ const routes = [
       { path: 'history', component: () => import('../views/HistoryView.vue') },
       { path: 'search', component: () => import('../views/SearchView.vue') },
       { path: 'stats', component: () => import('../views/StatsView.vue') },
+      { path: 'profile', component: () => import('../views/ProfileView.vue') },
     ],
   },
 ]

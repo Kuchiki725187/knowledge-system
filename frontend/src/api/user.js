@@ -19,3 +19,9 @@ export function updateMe(data) {
 export function refreshToken(data) {
   return request.post('/user/refresh', data)
 }
+
+export function uploadAvatar(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post('/user/avatar', formData)
+}
