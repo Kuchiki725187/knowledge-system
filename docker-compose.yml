@@ -1,6 +1,4 @@
-# 个人知识管理系统 · 一键部署
-# 用法: cp .env.example .env 并填写密码 → docker compose up -d --build
-# 敏感值全部走 .env 注入,不入代码仓库
+
 services:
   mysql:
     image: mysql:8.0
@@ -59,6 +57,12 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       JWT_SECRET: ${JWT_SECRET}
       TZ: Asia/Shanghai
+      # 阿里云 OSS 配置
+      OSS_ENDPOINT: ${OSS_ENDPOINT}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET}
+      OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
+      OSS_URL_PREFIX: ${OSS_URL_PREFIX}
     volumes:
       - upload-data:/app/uploads
     depends_on:

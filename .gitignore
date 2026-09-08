@@ -9,6 +9,7 @@ uploads/
 
 # 部署环境变量(真实密码不入库)
 .env
+.env.example
 
 .idea/
 *.iml
