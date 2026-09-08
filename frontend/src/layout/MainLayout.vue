@@ -1,6 +1,8 @@
 <script setup>
+import { onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { getMe } from '../api/user'
 
 const router = useRouter()
 const route = useRoute()
@@ -10,6 +12,18 @@ const store = useUserStore()
 function avatarUrl() {
   return store.userInfo?.avatar || ''
 }
+
+// 刷新后恢复用户信息:Pinia 只持久化了 token,userInfo 需重新拉取,
+// 否则右上角头像/昵称/资料入口全部失效
+onMounted(async () => {
+  if (store.accessToken && !store.userInfo) {
+    try {
+      store.setUserInfo(await getMe())
+    } catch (e) {
+      /* token 失效由 request 拦截器统一跳登录 */
+    }
+  }
+})
 
 function handleLogout() {
   store.logout()
